@@ -1,4 +1,5 @@
 const process = require('process');
+const { db } = require('./src/connect');
 const client = require("./src/connect");
 const { ExceptionConsole } = require("./src/utils");
 process.stdin.setEncoding('utf8');
@@ -15,7 +16,7 @@ async function game () {
 
         const database = client.db("pendu");
         const pendu = database.collection("pendu");
-        const proj = {_id: 0, word:1, hide:1};
+        const proj = {_id: 0, word:1, hide:1, nbWin:1, nbLose: 1};
 
         const listWordsLength = await pendu.find({}).count()
 
@@ -29,6 +30,8 @@ async function game () {
         var listeLetter = "";
 
         var count = 0;
+        var Wins = 0;
+        var Loses = 0;
 
         //entré dans le jeu
         process.stdin.on("data", async (data) => {
@@ -38,10 +41,18 @@ async function game () {
                 console.log("\n")
                 console.log("You just found my words in " + count + " tries!")
                 console.log("Wait! Did you just won? How could... you... beat... me?! I'm sure you cheated!")
+
+                Wins = chosenWord.nbWin + 1;
+                await pendu.updateOne(query, {$set: {nbWin: Wins }})
+                chosenWord = await pendu.findOne(query, proj)
+                console.log("For the word " + chosenWord.word + " you won " + chosenWord.nbWin + " times and lost " + chosenWord.nbLose + " times.")
+
                 console.log("I want a rematch! This time i'll win! Or you ok?")
                 process.stdout.write("yes/no? > ");
                 tabLetter = [];
                 count = 0;
+
+                //init un autre mot
                 index = randomNumber(listWordsLength);
                 query = {"index": index};
                 chosenWord = await pendu.findOne(query, proj)
@@ -61,7 +72,7 @@ async function game () {
                 console.log('Try next time if you dare so :p');
                 process.stdin.pause();
 
-            } else if (letter.length > 1){
+            } else if (letter.length > 1 && count < 6){
                 console.log("\n")
                 console.log('That\'s not my word unlucky...')
                 count++
@@ -119,11 +130,22 @@ async function game () {
                 
             } else {
                 console.log("You use more than 7 tries. And so you lost...")
+
+                Loses = chosenWord.nbLose + 1;
+                await pendu.updateOne(query, {$set: {nbLose: Loses }})
+                chosenWord = await pendu.findOne(query, proj)
+                console.log("For the word " + chosenWord.word + " you won " + chosenWord.nbWin + " times and lost " + chosenWord.nbLose + " times.")
+
                 console.log("So do you admit i'm invicible? Ahahah! Do you still want to face me?")
                 console.log("\n")
                 process.stdout.write("yes/no? > ");
                 count = 0;
                 tabLetter = [];
+
+                //init un autre mot
+                index = randomNumber(listWordsLength);
+                query = {"index": index};
+                chosenWord = await pendu.findOne(query, proj)
             }
             } catch (e) {
               await client.close();
