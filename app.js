@@ -3,17 +3,6 @@ const client = require("./src/connect");
 const { ExceptionConsole } = require("./src/utils");
 process.stdin.setEncoding('utf8');
 
-//récupérer la valeur de listWordLength pour faire un random number et récuperer le mot de cette index en tant que mot à trouver (done)
-//demander à l'user si il veut jouer (done)
-//gérer l'entré d'un caractere par le user (done)
-//gérer la comparaison avec avec le mot plein (done)
-//gérer si il y a plusieurs fois la lettre (done)
-//gérer l'affichage du mot hidden (done)
-//afficher les lettres déja trouvé et deja utilisé
-//update les lettres du mot hidden (done)
-//gérer le compteur
-//réussite ou échec
-
 const randomNumber = (max) =>{
     return Math.floor(
         Math.random() * (max) + 1
@@ -30,31 +19,76 @@ async function game () {
 
         const listWordsLength = await pendu.find({}).count()
 
-        const index = randomNumber(listWordsLength);
+        var index = randomNumber(listWordsLength);
 
-        const query = {"index": index};
+        var query = {"index": index};
 
-        const chosenWord = await pendu.findOne(query, proj)
+        var chosenWord = await pendu.findOne(query, proj)
+
+        var tabLetter = [];
+        var listeLetter = "";
+
+        var count = 0;
 
         //entré dans le jeu
         process.stdin.on("data", async (data) => {
             try {
               const letter = data.toString().trim();
-              if (data.toString().trim() === 'yes') {
+              if (letter === chosenWord.word){  
+                console.log("\n")
+                console.log("You just found my words in " + count + " tries!")
+                console.log("Wait! Did you just won? How could... you... beat... me?! I'm sure you cheated!")
+                console.log("I want a rematch! This time i'll win! Or you ok?")
+                process.stdout.write("yes/no? > ");
+                tabLetter = [];
+                count = 0;
+                index = randomNumber(listWordsLength);
+                query = {"index": index};
+                chosenWord = await pendu.findOne(query, proj)
+
+              } else if (letter === 'yes') {
+                console.log("\n")
                 console.log("So you dare to challenge me? all right!")
 
                 console.log("My word is... as i would tell you. Instead i'll give you some letters : ")
                 console.log(chosenWord.hide)
+                console.log("\n")
                 console.log("now give me a letter")
                 process.stdout.write("choose your letter: > ");
 
-            } else if (data.toString().trim() === 'no') {
+            } else if (letter === 'no') {
+                console.log("\n")
                 console.log('Try next time if you dare so :p');
                 process.stdin.pause();
-            } else if (data.toString().trim().length > 1){
-                console.log('Only give one letter please, you cheater')
+
+            } else if (letter.length > 1){
+                console.log("\n")
+                console.log('That\'s not my word unlucky...')
+                count++
+                if(count === 1){
+                    console.log("You already try to guess once or used " + count + " letter : " + listeLetter)
+                } else {
+                    console.log("You already try to guess my word or some letters " + count + " times : " + listeLetter)
+                }
+                console.log(chosenWord.hide);
+                console.log("\n")
                 process.stdout.write("choose your letter: > ");
-            } else {
+
+            } else if(tabLetter.includes(letter)){
+                console.log("\n")
+                console.log("You already use this letter... hopefully i'm watching out for you")
+                if(count === 1){
+                    console.log("You already try to guess once or used " + count + " letter : " + listeLetter)
+                } else {
+                    console.log("You already try to guess my word or some letters " + count + " times : " + listeLetter)
+                }
+                console.log(chosenWord.hide);
+                console.log("\n")
+                process.stdout.write("choose your letter (a different this time): > ");
+
+            } else if(count < 6){
+                console.log("\n")
+                tabLetter.push(letter);
                 var splitWord = chosenWord.word.split("")
                 var letterExist = splitWord.includes(data.toString().trim())
                 if(letterExist){
@@ -69,9 +103,27 @@ async function game () {
                     console.log(chosenWord.hide);
                 } else{
                     console.log("That's not one of my letter...")
+                    console.log(chosenWord.hide);
                 }
+                
+                listeLetter = tabLetter.join()
 
+                count++;
+                if(count === 1){
+                    console.log("You already try to guess once or used " + count + " letter : " + listeLetter)
+                } else {
+                    console.log("You already try to guess my word or some letters " + count + " times : " + listeLetter)
+                }
+                console.log("\n")
                 process.stdout.write("choose your letter: > ");
+                
+            } else {
+                console.log("You use more than 7 tries. And so you lost...")
+                console.log("So do you admit i'm invicible? Ahahah! Do you still want to face me?")
+                console.log("\n")
+                process.stdout.write("yes/no? > ");
+                count = 0;
+                tabLetter = [];
             }
             } catch (e) {
               await client.close();
